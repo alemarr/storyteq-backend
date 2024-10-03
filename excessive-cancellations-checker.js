@@ -1,7 +1,7 @@
 const fs = require("fs");
 
 import { TradeMessage } from "./src/trade-message";
-import { isExcessiveWithinInterval, isValidOrderType, isWithinInterval } from "./src/utils.js";
+import { isExcessiveWithinInterval, isValidOrderType, isWithinInterval } from "./src/utils";
 
 export class ExcessiveCancellationsChecker {
   constructor(filePath) {
