@@ -1,19 +1,7 @@
 const fs = require("fs");
 
-// Emulating an enum here
-const OrderType = {
-  NewOrder: "D",
-  Cancellation: "F",
-}
-
-class TradeMessage {
-  constructor(tradeTime, companyName, orderType, quantity) {
-    this.tradeTime = tradeTime;
-    this.companyName = companyName;
-    this.orderType = orderType;
-    this.quantity = quantity;
-  }
-}
+import { TradeMessage } from "./src/trade-message";
+import { isExcessiveWithinInterval, isValidOrderType, isWithinInterval } from "./src/utils.js";
 
 export class ExcessiveCancellationsChecker {
   constructor(filePath) {
@@ -34,7 +22,7 @@ export class ExcessiveCancellationsChecker {
         return;
       }
 
-      if (!this.isValidOrderType(orderType)) {
+      if (!isValidOrderType(orderType)) {
         return;
       }
 
@@ -42,56 +30,29 @@ export class ExcessiveCancellationsChecker {
         this.companies.push(companyName);
       }
 
-      tradeMessages.push(
-          new TradeMessage(tradeTime, companyName, orderType, parseInt(quantity))
-      );
+      tradeMessages.push(new TradeMessage(tradeTime, companyName, orderType, parseInt(quantity)));
     });
 
     return tradeMessages;
   }
 
-  isValidOrderType(orderType) {
-    return orderType === OrderType.NewOrder || orderType === OrderType.Cancellation;
-  }
-
   async companiesInvolvedInExcessiveCancellations() {
+    const companiesInvolvedInExcessiveCancellations = [];
     const tradeMessages = this.getTradeMessages();
 
     // Sort by company name
-    tradeMessages.sort(
-        (trade, anotherTrade) =>
-            trade.companyName.localeCompare(anotherTrade.companyName)
-    );
-
-    const companiesInvolvedInExcessiveCancellations = [];
+    tradeMessages.sort((trade, anotherTrade) => trade.companyName.localeCompare(anotherTrade.companyName));
 
     const companyTradeMessages = new Map([]);
 
+    // Group messages by company name
     this.companies.forEach((companyName) => {
       const messages = tradeMessages.filter((message) => message.companyName === companyName);
       companyTradeMessages.set(companyName, messages);
     });
 
-    const INTERVAL_MILLISECONDS = 1000 * 60;
-    const isWithinInterval = (start, message) => {
-      return new Date(message.tradeTime).getTime() <= start + INTERVAL_MILLISECONDS;
-    };
-
-    const isExcessiveWithinInterval = (messages) => {
-      const total = messages.reduce((sum, message) => {
-        sum += message.quantity;
-        return sum;
-      }, 0);
-      const cancellations = messages.reduce((sum, message) => {
-        if (message.orderType === OrderType.Cancellation) {
-          sum += message.quantity;
-        }
-        return sum;
-      }, 0);
-
-      return total / 3 < cancellations;
-    };
-
+    // Iterate through the company's messages and split them in chunks of 1 minute intervals
+    // to check if they are excessive
     companyTradeMessages.forEach((messages, companyName) => {
       const firstMessage = messages.shift();
       const start = new Date(firstMessage.tradeTime).getTime();
