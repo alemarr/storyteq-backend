@@ -1,7 +1,10 @@
+import {OrderType} from "./src/order-type.js";
+
 const fs = require("fs");
 
-import { TradeMessage } from "./src/trade-message";
-import { isExcessiveWithinInterval, isValidOrderType, isWithinInterval } from "./src/utils";
+import {TradeMessage} from "./src/trade-message";
+import { isValidOrderType } from "./src/utils";
+import { INTERVAL_MILLISECONDS } from "./src/constants";
 
 export class ExcessiveCancellationsChecker {
   constructor(filePath) {
@@ -36,6 +39,25 @@ export class ExcessiveCancellationsChecker {
     return tradeMessages;
   }
 
+  checkMessagesInInterval(messages) {
+    const total = messages.reduce((sum, message) => {
+      sum += message.quantity;
+      return sum;
+    }, 0);
+    const cancellations = messages.reduce((sum, message) => {
+      if (message.orderType === OrderType.Cancellation) {
+        sum += message.quantity;
+      }
+      return sum;
+    }, 0);
+
+    return total / 3 < cancellations;
+  }
+
+  isMessageWithinInterval = (startOfInterval, message) => {
+    return new Date(message.tradeTime).getTime() <= startOfInterval + INTERVAL_MILLISECONDS;
+  };
+
   async companiesInvolvedInExcessiveCancellations() {
     const companiesInvolvedInExcessiveCancellations = [];
     const tradeMessages = this.getTradeMessages();
@@ -55,16 +77,16 @@ export class ExcessiveCancellationsChecker {
     // to check if they are excessive
     companyTradeMessages.forEach((messages, companyName) => {
       const firstMessage = messages.shift();
-      const start = new Date(firstMessage.tradeTime).getTime();
+      const startOfInterval = new Date(firstMessage.tradeTime).getTime();
 
       let messagesInInterval = [firstMessage];
 
       for (let i = 0; i <= messages.length; i++) {
         const message = messages[i];
-        if (message && isWithinInterval(start, message)) {
+        if (message && this.isMessageWithinInterval(startOfInterval, message)) {
           messagesInInterval.push(message);
         } else {
-          if (isExcessiveWithinInterval(messagesInInterval)) {
+          if (this.checkMessagesInInterval(messagesInInterval)) {
             companiesInvolvedInExcessiveCancellations.push(companyName);
             break;
           }

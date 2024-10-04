@@ -1,0 +1,1 @@
+export const INTERVAL_MILLISECONDS = 1000 * 60;
