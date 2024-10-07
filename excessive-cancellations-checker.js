@@ -1,10 +1,9 @@
-import {OrderType} from "./src/order-type.js";
-
 const fs = require("fs");
 
-import {TradeMessage} from "./src/trade-message";
+import { TradeMessage } from "./src/trade-message";
 import { isValidOrderType } from "./src/utils";
-import { INTERVAL_MILLISECONDS } from "./src/constants";
+import { INTERVAL_MILLISECONDS, MESSAGES_PORTION_TO_CHECK } from "./src/constants";
+import { OrderType } from "./src/order-type";
 
 export class ExcessiveCancellationsChecker {
   constructor(filePath) {
@@ -51,7 +50,7 @@ export class ExcessiveCancellationsChecker {
       return sum;
     }, 0);
 
-    return total / 3 < cancellations;
+    return total / MESSAGES_PORTION_TO_CHECK < cancellations;
   }
 
   isMessageWithinInterval = (startOfInterval, message) => {
@@ -62,12 +61,12 @@ export class ExcessiveCancellationsChecker {
     const companiesInvolvedInExcessiveCancellations = [];
     const tradeMessages = this.getTradeMessages();
 
-    // Sort by company name
+    // Sort messages by company name to group them later
     tradeMessages.sort((trade, anotherTrade) => trade.companyName.localeCompare(anotherTrade.companyName));
 
     const companyTradeMessages = new Map([]);
 
-    // Group messages by company name
+    // Group messages by company name to check each company once
     this.companies.forEach((companyName) => {
       const messages = tradeMessages.filter((message) => message.companyName === companyName);
       companyTradeMessages.set(companyName, messages);
@@ -83,9 +82,11 @@ export class ExcessiveCancellationsChecker {
 
       for (let i = 0; i <= messages.length; i++) {
         const message = messages[i];
+        // Add message to interval
         if (message && this.isMessageWithinInterval(startOfInterval, message)) {
           messagesInInterval.push(message);
         } else {
+          // Check messages in interval
           if (this.checkMessagesInInterval(messagesInInterval)) {
             companiesInvolvedInExcessiveCancellations.push(companyName);
             break;

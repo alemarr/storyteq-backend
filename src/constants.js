@@ -1,1 +1,2 @@
 export const INTERVAL_MILLISECONDS = 1000 * 60;
+export const MESSAGES_PORTION_TO_CHECK = 3;
